@@ -6,7 +6,6 @@
 #define SAMPLES 512
 int buff[SAMPLES];
 int cnt=0;
-unsigned int sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
 
 //EMG input
 #define Input_E 36 
@@ -20,9 +19,18 @@ byte filenum_100 = 0;
 File file;
 
 void SD_init(){
+  filenum_1 = 0;
+  filenum_10 = 0;
+  filenum_100 = 0;
+  filename[5] = '0';
+  filename[6] = '0';
+  filename[7] = '0';
   while(1){
     if(SD.exists(filename)){
-      M5.Lcd.println("Exist");
+      M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setCursor(10, 10);
+      M5.Lcd.print(filename);
+      M5.Lcd.print(": Exist");
       delay(1000);
       filenum_1++;
       if(filenum_1 > 9){
@@ -37,8 +45,50 @@ void SD_init(){
       filename[6] = filenum_10+48;
       filename[7] = filenum_1+48;
     }else{
-      M5.Lcd.println("Not exist");
+      M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setCursor(10, 10);
+      M5.Lcd.print(filename);
+      M5.Lcd.print(": Not exist");
       delay(1000);
+      break;
+    }
+  }
+}
+
+void SD_remove(){
+  filenum_1 = 0;
+  filenum_10 = 0;
+  filenum_100 = 0;
+  filename[5] = '0';
+  filename[6] = '0';
+  filename[7] = '0';
+  M5.Lcd.print(filename);
+  delay(1000);
+  while(1){
+    if(SD.exists(filename)){
+      M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setCursor(10, 10);
+      SD.remove(filename);
+      M5.Lcd.print(filename);
+      M5.Lcd.print(" removed");
+      delay(1000);
+      filenum_1++;
+      if(filenum_1 > 9){
+        filenum_10++;
+        filenum_1 = 0;
+        if(filenum_10 > 9){
+          filenum_100++;
+          filenum_10 = 0;
+        }
+      }
+      filename[5] = filenum_100+48;
+      filename[6] = filenum_10+48;
+      filename[7] = filenum_1+48;
+    }else{
+      //filename[5] = 0;
+      //filename[6] = 0;
+      //filename[7] = 0;
+      //char filename[13] = "/data000.csv";
       break;
     }
   }
@@ -70,17 +120,14 @@ void setup() {
   delay(1000);
   //Serial.begin(115200); 
   M5.Lcd.fillScreen(BLACK);  // 画面をクリア
-  
-  SD_init();
-  M5.Lcd.println(filename);
-  delay(1000);
 }
 
 void record(){
   file = SD.open(filename, FILE_APPEND);
   M5.Lcd.fillScreen(BLACK);  // 画面をクリア
   M5.Lcd.setCursor(10, 10);
-  M5.Lcd.print("Start");
+  M5.Lcd.print("Start: ");
+  M5.Lcd.println(filename);
   M5.Lcd.setCursor(10, 30);
   M5.Lcd.print(cnt);
   //M5.Lcd.fillRect(0, 120, 320, 100, BLACK); 
@@ -105,10 +152,12 @@ void record(){
     //buff[i] = buff[i] - 2844;
 
     
-    float VoutE = eE / 4095.0 * 3.3 + 0.1132;
+    //float VoutE = eE / 4095.0 * 3.3 + 0.1132;
     
     Serial.println(buff[i]);
-    file.printf("%d,%.2f\n", buff[i], VoutE);
+    //file.printf("%d,%.2f\n", buff[i], VoutE);
+    file.printf("%d,%d\n", buff[i], eE);
+
     //file.printf("%.2f\n", VoutE);
 
     M5.Lcd.setCursor(10, 50);
@@ -138,11 +187,48 @@ void record(){
 }
 
 void loop() {
-  //M5.update();
-  
-  if (cnt<50) {
-    //M5.Lcd.fillScreen(BLACK);  // 画面をクリア
-    record();
-    cnt++; 
+  M5.update();
+  if (M5.BtnA.isPressed()) {
+    M5.Lcd.println("BtnA pressed!");
+    SD_init(); // ファイル名を決める関数
+    //delay(1000);
+    cnt=0;
+    while(cnt<10){
+      record();
+      cnt++; 
+    }
+    cnt=0;
   }
+  
+  //if (cnt<10) {
+    //M5.Lcd.fillScreen(BLACK);  // 画面をクリア
+  //  record();
+  //  cnt++; 
+  //}
+  if (M5.BtnC.isPressed()) {
+    cnt=0;
+    M5.Lcd.setCursor(10, 10);
+    M5.Lcd.println("Do you remove files?");
+    M5.Lcd.println("Yes: A, No: B");
+    while(1){
+      M5.update();
+      if (M5.BtnA.isPressed()) {
+        SD_remove();
+        break;
+      }
+      else if (M5.BtnB.isPressed()) {
+        M5.Lcd.println("Canceled");
+        delay(1000);
+        break;
+      }
+      delay(500);
+    }
+  }
+  
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setCursor(10, 10);
+  M5.Lcd.print("Waiting: ");
+  M5.Lcd.println(cnt);
+  delay(500);
+  cnt++; 
 }
